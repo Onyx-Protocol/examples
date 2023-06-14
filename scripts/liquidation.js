@@ -1,64 +1,67 @@
-const { ethers, network } = require("hardhat");
-const oXCNAbi = require("./../abi/oXCN.json");
-const XCNAbi = require("./../abi/XCN.json");
-const ComptrollerAbi = require("./../abi/Comptroller.json");
-require("dotenv").config();
+const { ethers, network } = require('hardhat');
+const oXCNAbi = require('./../abi/oXCN.json');
+const XCNAbi = require('./../abi/XCN.json');
+const ComptrollerAbi = require('./../abi/Comptroller.json');
+require('dotenv').config();
 
-async function liquidate() {
-  const borrowerAddress = process.env.XCN_BORROWER_ADDRESS
-  const signerAddress = process.env.XCN_ADDRESS
+const borrowerAddress = process.env.XCN_BORROWER_ADDRESS;
+const signerAddress = process.env.XCN_ADDRESS
+
+async function main() {
+  // We will send transactions impersonating account with signerAddress
   await network.provider.request({
-    method: "hardhat_impersonateAccount",
+    method: 'hardhat_impersonateAccount',
     params: [signerAddress],
   });
-  const [owner] = await ethers.getSigners();
   const signer = ethers.provider.getSigner(signerAddress);
-  await owner.sendTransaction({
-    to: signerAddress,
-    value: ethers.utils.parseEther("1000")
-  })
 
-  const oXCN = await ethers.getContractAt(oXCNAbi, "0x1961AD247B47F4f2242E55a0E5578C6cf01F8D12", signer)
-  const XCN = await ethers.getContractAt(XCNAbi, "0xA2cd3D43c775978A96BdBf12d733D5A1ED94fb18", signer)
-  const Comptroller = await ethers.getContractAt(ComptrollerAbi, "0x7D61ed92a6778f5ABf5c94085739f1EDAbec2800", signer)
+  // Get contracts
+  const oXCN = await ethers.getContractAt(oXCNAbi, '0x1961AD247B47F4f2242E55a0E5578C6cf01F8D12', signer);
+  const XCN = await ethers.getContractAt(XCNAbi, '0xA2cd3D43c775978A96BdBf12d733D5A1ED94fb18', signer);
+  const Comptroller = await ethers.getContractAt(ComptrollerAbi, '0x7D61ed92a6778f5ABf5c94085739f1EDAbec2800', signer);
 
-  await Comptroller.enterMarkets([oXCN.address])
+  // Enter markets with borrow-asset
+  await Comptroller.enterMarkets([oXCN.address]);
 
-  const bank = await XCN.balanceOf(signerAddress)
-  const oXCNExchangeRate = await oXCN.callStatic.exchangeRateCurrent()
-  console.log('1 oXCN = XCN:', oXCNExchangeRate / 1e28)
-  console.log('1 XCN = oXCN:', (1 / (oXCNExchangeRate / 1e28)))
+  // Get exchange rates for oXCN and XCN
+  const oXCNExchangeRate = await oXCN.callStatic.exchangeRateCurrent();
+  console.log(`1 oXCN = XCN: ${oXCNExchangeRate / 1e28}`);
+  console.log(`1 XCN = oXCN: ${(1 / (oXCNExchangeRate / 1e28))}`);
+  console.log('\n');
 
-  await XCN.approve(oXCN.address, bank)
-  await XCN.approve(Comptroller.address, bank)
+  // Amount of XCN tokens at signer account
+  const bank = await XCN.balanceOf(signerAddress);
 
-  console.log('XCN balance:', await XCN.balanceOf(signerAddress))
-  console.log('XCN balance locked for supply:', await oXCN.callStatic.balanceOfUnderlying(signerAddress))
-  console.log('Borrower account liquidity:', await Comptroller.getAccountLiquidity(borrowerAddress))
-  console.log('Borrower assets in (XCN):', await Comptroller.getAssetsIn(borrowerAddress))
+  // Allow oTokens contract and Comptroller to transfer tokens
+  await XCN.approve(oXCN.address, bank);
+  await XCN.approve(Comptroller.address, bank);
 
-  const borrowedBalance = await oXCN.callStatic.borrowBalanceCurrent(borrowerAddress)
-  console.log('Borrower balance in XCN:', borrowedBalance)
-  console.log('Borrower balance in oXCN:', borrowedBalance.mul(Math.floor((1 / (oXCNExchangeRate / 1e28)))))
+  console.log(`XCN balance: ${await XCN.balanceOf(signerAddress)}`);
+  console.log(`XCN balance locked for supply: ${await oXCN.callStatic.balanceOfUnderlying(signerAddress)}`);
+  console.log(`Borrower account liquidity: ${await Comptroller.getAccountLiquidity(borrowerAddress)}`);
+  console.log(`Borrower assets in (XCN): ${await Comptroller.getAssetsIn(borrowerAddress)}`);
+  console.log('\n');
 
+  // Get borrow balance in underlying token (XCN)
+  const borrowedBalance = await oXCN.callStatic.borrowBalanceCurrent(borrowerAddress);
+  console.log(`Borrower balance in XCN: ${borrowedBalance}`);
+  console.log(`Borrower balance in oXCN: ${borrowedBalance.mul(Math.floor((1 / (oXCNExchangeRate / 1e28))))}`);
+  console.log('\n');
 
-  oXCN.liquidateBorrow(borrowerAddress, borrowedBalance.div(2), oXCN.address)
+  // Liquidate a half of borrowed balance
+  oXCN.liquidateBorrow(borrowerAddress, borrowedBalance.div(2), oXCN.address);
 
-  await new Promise((resolve) => oXCN.on("LiquidateBorrow", async (...args) => {
-    console.log("Event LiquidateBorrow:", args)
-    console.log('Borrower account liquidity after liquidation:', await Comptroller.getAccountLiquidity(borrowerAddress))
-    console.log('Borrower balance in XCN after liquidation:', borrowedBalance)
-    console.log('XCN balance after liquidation:', await XCN.balanceOf(signerAddress))
-    console.log('XCN balance locked for supply after liquidation:', await oXCN.callStatic.balanceOfUnderlying(signerAddress))
-    resolve()
-  }))
+  await new Promise((resolve) => oXCN.on('LiquidateBorrow', async (...args) => {
+    console.log(`Event LiquidateBorrow: ${args}`);
+    console.log(`Borrower account liquidity after liquidation: ${await Comptroller.getAccountLiquidity(borrowerAddress)}`);
+    console.log(`Borrower balance in XCN after liquidation: ${borrowedBalance}`);
+    console.log(`XCN balance after liquidation: ${await XCN.balanceOf(signerAddress)}`);
+    console.log(`XCN balance locked for supply after liquidation: ${await oXCN.callStatic.balanceOfUnderlying(signerAddress)}`);
+    resolve();
+  }));
 }
 
-async function send() {
-  await liquidate();
-}
-
-send()
+main()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);
