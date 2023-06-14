@@ -21,3 +21,5 @@ npm run liquidate
 ```
 npm run supplyBorrowRepayRedeem
 ```
+
+Check [Wiki](https://github.com/Onyx-Protocol/examples/wiki) to learn more.
