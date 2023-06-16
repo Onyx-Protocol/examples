@@ -39,12 +39,13 @@ async function main() {
 
   // To supply USDC we need to mint oTokens
   // 100_000000 - amount in underlying asset (USDC) equals $100 (USDC has 6 decimals)
-  oUSDC.mint(100_000000);
+  oUSDC.mint(100_000001);
 
   await new Promise((resolve) => oUSDC.on('Mint', async (...args) => {
     console.log(`Event Mint: ${args}`);
     console.log(`USDC balance: ${await USDC.balanceOf(signerAddress)}`);
     console.log(`USDC balance locked for supply: ${await oUSDC.callStatic.balanceOfUnderlying(signerAddress)}`);
+    console.log(`USDC supply rate per block: ${await oUSDC.callStatic.supplyRatePerBlock()}`);
     console.log(`USDC collateral factor: ${await Comptroller.callStatic.markets(oUSDC.address)}`);
     console.log(`Account liquidity USD: ${await Comptroller.callStatic.getAccountLiquidity(signerAddress)}`);
     console.log('\n');
@@ -68,7 +69,7 @@ async function main() {
     resolve();
   }));
 
-  // Mine about 1000 blocks to grow borrow balance by rate per block
+  // Mine 1000 blocks to grow borrow balance by rate per block
   for (let i = 0; i < 999; i++) {
     await network.provider.request({
       method: 'evm_mine',
@@ -79,7 +80,6 @@ async function main() {
 
   const borrowBalance = await oUSDT.callStatic.borrowBalanceCurrent(signerAddress);
   console.log(`USDT borrow balance: ${borrowBalance}`);
-  console.log(`Account liquidity USD: ${await Comptroller.callStatic.getAccountLiquidity(signerAddress)}`);
   console.log('\n');
 
 

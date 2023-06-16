@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "liquidate": "npx hardhat run scripts/liquidation.js",
+    "liquidation": "npx hardhat run scripts/liquidation.js",
     "supplyBorrowRepayRedeem": "npx hardhat run scripts/supplyBorrowRepayRedeem.js"
   },
   "devDependencies": {

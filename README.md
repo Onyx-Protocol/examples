@@ -14,7 +14,7 @@ Before running, create ``.env`` file and fill it with:
 
 ### Running Liqudation sample:
 ```
-npm run liquidate
+npm run liquidation
 ```
 
 ### Running Supply Borrow Repay Redeem sample:

@@ -5,7 +5,7 @@ const ComptrollerAbi = require('./../abi/Comptroller.json');
 require('dotenv').config();
 
 const borrowerAddress = process.env.XCN_BORROWER_ADDRESS;
-const signerAddress = process.env.XCN_ADDRESS
+const signerAddress = process.env.XCN_ADDRESS;
 
 async function main() {
   // We will send transactions impersonating account with signerAddress
