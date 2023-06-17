@@ -25,7 +25,7 @@ Change the existing fields to run examples with your own parameters:
 ``XCN_BORROWER_ADDRESS`` - XCN borrower address from mainnet with XCN borrowed assets and negative account liquidity  
 ``USDC_ADDRESS`` - USDC holder address from mainnet with some huge amount of USDC tokens
 
-### Running Liqudation sample:
+### Running Liquidation sample:
 
 ```
 npm run liquidation
