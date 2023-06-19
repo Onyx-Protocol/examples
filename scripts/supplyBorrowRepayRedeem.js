@@ -54,7 +54,7 @@ async function main() {
     console.log(`USDC balance: ${formatNumber(await USDC.balanceOf(signerAddress) / 1e6)}`);
     console.log(`USDC balance locked for supply: ${formatNumber(await oUSDC.callStatic.balanceOfUnderlying(signerAddress) / 1e6)}`);
     console.log(`USDC supply rate per block: ${formatNumber(await oUSDC.callStatic.supplyRatePerBlock() / 1e18)}`);
-    console.log(`USDC collateral factor: ${await Comptroller.callStatic.markets(oUSDC.address)}`);
+    console.log(`USDC collateral factor: ${(await Comptroller.callStatic.markets(oUSDC.address))[1] / 1e18}`);
     console.log(`Account liquidity in USD: ${formatNumber((await Comptroller.getAccountLiquidity(signerAddress))[1] / 1e18)}`);
     console.log('\n');
     resolve();
