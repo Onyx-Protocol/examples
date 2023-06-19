@@ -24,6 +24,7 @@ async function main() {
   const Comptroller = await ethers.getContractAt(ComptrollerAbi, '0x7D61ed92a6778f5ABf5c94085739f1EDAbec2800', signer);
 
   // Enter markets supply, borrow oTokens
+  // https://docs.onyx.org/comptroller/enter-markets
   await Comptroller.enterMarkets([oUSDC.address, oUSDT.address]);
 
   // Amount of USDC tokens at signer account
@@ -39,6 +40,7 @@ async function main() {
 
   // To supply USDC we need to mint oTokens
   // 100_000000 - amount in underlying asset (USDC) equals $100 (USDC has 6 decimals)
+  // https://docs.onyx.org/otokens/mint
   oUSDC.mint(100_000001);
 
   await new Promise((resolve) => oUSDC.on('Mint', async (minter, mintAmount, mintTokens) => {
@@ -63,6 +65,7 @@ async function main() {
   console.log(`USDT total supply: ${await oUSDT.totalSupply() / 1e8}`);
 
   // 50_000000 - amount in underlying asset (USDT) equals $50 (USDT has 6 decimals)
+  // https://docs.onyx.org/otokens/borrow
   oUSDT.borrow(50_000000);
 
   await new Promise((resolve) => oUSDT.on('Borrow', async (borrower, borrowAmount, accountBorrows, totalBorrows) => {
@@ -97,6 +100,7 @@ async function main() {
   // Repay
 
   // 50_000000 - amount in underlying asset (USDT) equals $50 (USDT has 6 decimals)
+  // https://docs.onyx.org/otokens/repay-borrow
   oUSDT.repayBorrow(50_000000);
 
   await new Promise((resolve) => oUSDT.on('RepayBorrow', async (payer, borrower, repayAmount, accountBorrows, totalBorrows) => {
@@ -124,6 +128,7 @@ async function main() {
   console.log(`Account liquidity before redeem: ${await Comptroller.callStatic.getAccountLiquidity(signerAddress)}`);
 
   // Leaving 1 USDC unredeemed
+  // https://docs.onyx.org/otokens/redeem-underlying
   oUSDC.redeemUnderlying(USDCBalanceLocked - 1_000000);
 
   await new Promise(resolve => oUSDC.on('Redeem', async (redeemer, redeemAmount, redeemTokens) => {

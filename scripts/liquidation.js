@@ -21,6 +21,7 @@ async function main() {
   const Comptroller = await ethers.getContractAt(ComptrollerAbi, '0x7D61ed92a6778f5ABf5c94085739f1EDAbec2800', signer);
 
   // Enter markets with borrow-asset
+  // https://docs.onyx.org/comptroller/enter-markets
   await Comptroller.enterMarkets([oXCN.address]);
 
   // Get exchange rates for oXCN and XCN
@@ -50,6 +51,7 @@ async function main() {
   console.log('\n');
 
   // Liquidate a half of borrowed balance
+  // https://docs.onyx.org/otokens/liquidate-borrow
   oXCN.liquidateBorrow(borrowerAddress, borrowedBalance.div(2), oXCN.address);
 
   await new Promise((resolve) => oXCN.on('LiquidateBorrow', async (liquidator, borrower, repayAmount, oTokenCollateral, seizeTokens) => {
