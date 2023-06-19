@@ -28,7 +28,7 @@ async function main() {
 
   // Amount of USDC tokens at signer account
   const bank = await USDC.balanceOf(signerAddress);
-  console.log(`USDC Initial balance: ${bank}`);
+  console.log(`USDC Initial balance: ${bank / 1e6}`);
 
   // Allow oTokens contracts to transfer all the tokens on balance
   await USDC.approve(oUSDC.address, bank);
@@ -46,6 +46,9 @@ async function main() {
     console.log(`USDC balance: ${await USDC.balanceOf(signerAddress)}`);
     console.log(`USDC balance locked for supply: ${await oUSDC.callStatic.balanceOfUnderlying(signerAddress)}`);
     console.log(`USDC supply rate per block: ${await oUSDC.callStatic.supplyRatePerBlock()}`);
+    console.log(`USDC balance: ${await USDC.balanceOf(signerAddress) / 1e6}`);
+    console.log(`USDC balance locked for supply: ${await oUSDC.callStatic.balanceOfUnderlying(signerAddress) / 1e6}`);
+    console.log(`USDC supply rate per block: ${await oUSDC.callStatic.supplyRatePerBlock() / 1e18}`);
     console.log(`USDC collateral factor: ${await Comptroller.callStatic.markets(oUSDC.address)}`);
     console.log(`Account liquidity USD: ${await Comptroller.callStatic.getAccountLiquidity(signerAddress)}`);
     console.log('\n');
@@ -55,7 +58,7 @@ async function main() {
 
   // Borrow
 
-  console.log(`USDT total supply: ${await oUSDT.totalSupply()}`);
+  console.log(`USDT total supply: ${await oUSDT.totalSupply() / 1e8}`);
 
   // 50_000000 - amount in underlying asset (USDT) equals $50 (USDT has 6 decimals)
   oUSDT.borrow(50_000000);
@@ -63,9 +66,10 @@ async function main() {
   await new Promise((resolve) => oUSDT.on('Borrow', async (...args) => {
     console.log(`Event Borrow: ${args}`);
     console.log(`USDT balance: ${await USDT.balanceOf(signerAddress)}`);
+    console.log(`USDT balance: ${await USDT.balanceOf(signerAddress) / 1e6}`);
     console.log(`Account liquidity USD: ${await Comptroller.callStatic.getAccountLiquidity(signerAddress)}`);
-    console.log(`USDT borrow balance: ${await oUSDT.callStatic.borrowBalanceCurrent(signerAddress)}`);
-    console.log(`USDT borrow rate per block: ${await oUSDT.callStatic.borrowRatePerBlock()}`);
+    console.log(`USDT borrow balance: ${await oUSDT.callStatic.borrowBalanceCurrent(signerAddress) / 1e6}`);
+    console.log(`USDT borrow rate per block: ${await oUSDT.callStatic.borrowRatePerBlock() / 1e18}`);
     resolve();
   }));
 
@@ -79,7 +83,7 @@ async function main() {
   console.log('Mined 1000 blocks');
 
   const borrowBalance = await oUSDT.callStatic.borrowBalanceCurrent(signerAddress);
-  console.log(`USDT borrow balance: ${borrowBalance}`);
+  console.log(`USDT borrow balance: ${borrowBalance / 1e6}`);
   console.log('\n');
 
 
@@ -91,8 +95,9 @@ async function main() {
   await new Promise((resolve) => oUSDT.on('RepayBorrow', async (...args) => {
     console.log(`Event RepayBorrow: ${args}`);
     console.log(`USDT balance: ${await USDT.balanceOf(signerAddress)}`);
+    console.log(`USDT balance: ${await USDT.balanceOf(signerAddress) / 1e6}`);
     console.log(`Account liquidity USD: ${await Comptroller.callStatic.getAccountLiquidity(signerAddress)}`);
-    console.log(`USDT borrow balance: ${await oUSDT.callStatic.borrowBalanceCurrent(signerAddress)}`);
+    console.log(`USDT borrow balance: ${await oUSDT.callStatic.borrowBalanceCurrent(signerAddress) / 1e6}`);
     console.log('\n');
     resolve();
   }));
@@ -100,9 +105,9 @@ async function main() {
 
   // Redeem
 
-  console.log(`USDC balance: ${await USDC.balanceOf(signerAddress)}`);
+  console.log(`USDC balance: ${await USDC.balanceOf(signerAddress) / 1e6}`);
   const USDCBalanceLocked = await oUSDC.callStatic.balanceOfUnderlying(signerAddress);
-  console.log(`USDC balance locked for supply: ${USDCBalanceLocked}`);
+  console.log(`USDC balance locked for supply: ${USDCBalanceLocked / 1e6}`);
   console.log(`Account liquidity before redeem: ${await Comptroller.callStatic.getAccountLiquidity(signerAddress)}`);
 
   // Leaving 1 USDC unredeemed
@@ -111,8 +116,8 @@ async function main() {
   await new Promise(resolve => oUSDC.on('Redeem', async (...args) => {
     console.log(`Event Redeem: ${args}`);
     console.log(`Account liquidity USD: ${await Comptroller.callStatic.getAccountLiquidity(signerAddress)}`);
-    console.log(`USDC balance: ${await USDC.balanceOf(signerAddress)}`);
-    console.log(`USDC balance locked for supply: ${await oUSDC.callStatic.balanceOfUnderlying(signerAddress)}`);
+    console.log(`USDC balance: ${await USDC.balanceOf(signerAddress) / 1e6}`);
+    console.log(`USDC balance locked for supply: ${await oUSDC.callStatic.balanceOfUnderlying(signerAddress) / 1e6}`);
     resolve();
   }));
 }

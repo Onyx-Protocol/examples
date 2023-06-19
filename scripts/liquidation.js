@@ -36,16 +36,17 @@ async function main() {
   await XCN.approve(oXCN.address, bank);
   await XCN.approve(Comptroller.address, bank);
 
-  console.log(`XCN balance: ${await XCN.balanceOf(signerAddress)}`);
-  console.log(`XCN balance locked for supply: ${await oXCN.callStatic.balanceOfUnderlying(signerAddress)}`);
+  console.log(`XCN balance: ${await XCN.balanceOf(signerAddress) / 1e18}`);
+  console.log(`XCN balance locked for supply: ${await oXCN.callStatic.balanceOfUnderlying(signerAddress) / 1e18}`);
   console.log(`Borrower account liquidity: ${await Comptroller.getAccountLiquidity(borrowerAddress)}`);
+  console.log(`Borrower balance locked for supply in XCN: ${await oXCN.callStatic.balanceOfUnderlying(borrowerAddress) / 1e18}`);
   console.log(`Borrower assets in (XCN): ${await Comptroller.getAssetsIn(borrowerAddress)}`);
   console.log('\n');
 
   // Get borrow balance in underlying token (XCN)
   const borrowedBalance = await oXCN.callStatic.borrowBalanceCurrent(borrowerAddress);
-  console.log(`Borrower balance in XCN: ${borrowedBalance}`);
-  console.log(`Borrower balance in oXCN: ${borrowedBalance.mul(Math.floor((1 / (oXCNExchangeRate / 1e28))))}`);
+  console.log(`Borrower balance in XCN: ${borrowedBalance / 1e18}`);
+  console.log(`Borrower balance in oXCN: ${(borrowedBalance / 1e18) * (Math.floor((1 / (oXCNExchangeRate / 1e28))))}`);
   console.log('\n');
 
   // Liquidate a half of borrowed balance
@@ -54,9 +55,10 @@ async function main() {
   await new Promise((resolve) => oXCN.on('LiquidateBorrow', async (...args) => {
     console.log(`Event LiquidateBorrow: ${args}`);
     console.log(`Borrower account liquidity after liquidation: ${await Comptroller.getAccountLiquidity(borrowerAddress)}`);
-    console.log(`Borrower balance in XCN after liquidation: ${borrowedBalance}`);
-    console.log(`XCN balance after liquidation: ${await XCN.balanceOf(signerAddress)}`);
-    console.log(`XCN balance locked for supply after liquidation: ${await oXCN.callStatic.balanceOfUnderlying(signerAddress)}`);
+    console.log(`Borrower balance in XCN after liquidation: ${await oXCN.callStatic.borrowBalanceCurrent(borrowerAddress) / 1e18}`);
+    console.log(`Borrower balance locked for supply in XCN: ${await oXCN.callStatic.balanceOfUnderlying(borrowerAddress) / 1e18}`);
+    console.log(`XCN balance after liquidation: ${await XCN.balanceOf(signerAddress) / 1e18}`);
+    console.log(`XCN balance locked for supply after liquidation: ${await oXCN.callStatic.balanceOfUnderlying(signerAddress) / 1e18}`);
     resolve();
   }));
 }
