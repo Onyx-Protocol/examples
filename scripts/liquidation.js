@@ -68,6 +68,7 @@ async function main() {
     console.log(`Borrower balance locked for supply in XCN: ${await oXCN.callStatic.balanceOfUnderlying(borrowerAddress) / 1e18}`);
     console.log(`XCN balance after liquidation: ${await XCN.balanceOf(signerAddress) / 1e18}`);
     console.log(`XCN balance locked for supply after liquidation: ${await oXCN.callStatic.balanceOfUnderlying(signerAddress) / 1e18}`);
+    console.log(`Liquidator profit (current XCN locked for supply - liquidation cost): ${(await oXCN.callStatic.balanceOfUnderlying(signerAddress) - borrowedBalance.div(2)) / 1e18}`);
     resolve();
   }));
 }
