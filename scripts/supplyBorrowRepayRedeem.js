@@ -41,11 +41,13 @@ async function main() {
   // 100_000000 - amount in underlying asset (USDC) equals $100 (USDC has 6 decimals)
   oUSDC.mint(100_000001);
 
-  await new Promise((resolve) => oUSDC.on('Mint', async (...args) => {
-    console.log(`Event Mint: ${args}`);
-    console.log(`USDC balance: ${await USDC.balanceOf(signerAddress)}`);
-    console.log(`USDC balance locked for supply: ${await oUSDC.callStatic.balanceOfUnderlying(signerAddress)}`);
-    console.log(`USDC supply rate per block: ${await oUSDC.callStatic.supplyRatePerBlock()}`);
+  await new Promise((resolve) => oUSDC.on('Mint', async (minter, mintAmount, mintTokens) => {
+    console.log(
+      `Arguments received by Mint event:`,
+      `MinterAddress: ${minter};`,
+      `MintAmount: ${mintAmount};`,
+      `mintTokens: ${mintTokens};`,
+    );
     console.log(`USDC balance: ${await USDC.balanceOf(signerAddress) / 1e6}`);
     console.log(`USDC balance locked for supply: ${await oUSDC.callStatic.balanceOfUnderlying(signerAddress) / 1e6}`);
     console.log(`USDC supply rate per block: ${await oUSDC.callStatic.supplyRatePerBlock() / 1e18}`);
@@ -63,9 +65,14 @@ async function main() {
   // 50_000000 - amount in underlying asset (USDT) equals $50 (USDT has 6 decimals)
   oUSDT.borrow(50_000000);
 
-  await new Promise((resolve) => oUSDT.on('Borrow', async (...args) => {
-    console.log(`Event Borrow: ${args}`);
-    console.log(`USDT balance: ${await USDT.balanceOf(signerAddress)}`);
+  await new Promise((resolve) => oUSDT.on('Borrow', async (borrower, borrowAmount, accountBorrows, totalBorrows) => {
+    console.log(
+      `Arguments received by Borrow event:`,
+      `BorrowerAddress: ${borrower};`,
+      `BorrowAmount: ${borrowAmount};`,
+      `AccountBorrows: ${accountBorrows};`,
+      `TotalBorrows: ${totalBorrows};`,
+    );
     console.log(`USDT balance: ${await USDT.balanceOf(signerAddress) / 1e6}`);
     console.log(`Account liquidity USD: ${await Comptroller.callStatic.getAccountLiquidity(signerAddress)}`);
     console.log(`USDT borrow balance: ${await oUSDT.callStatic.borrowBalanceCurrent(signerAddress) / 1e6}`);
@@ -92,9 +99,15 @@ async function main() {
   // 50_000000 - amount in underlying asset (USDT) equals $50 (USDT has 6 decimals)
   oUSDT.repayBorrow(50_000000);
 
-  await new Promise((resolve) => oUSDT.on('RepayBorrow', async (...args) => {
-    console.log(`Event RepayBorrow: ${args}`);
-    console.log(`USDT balance: ${await USDT.balanceOf(signerAddress)}`);
+  await new Promise((resolve) => oUSDT.on('RepayBorrow', async (payer, borrower, repayAmount, accountBorrows, totalBorrows) => {
+    console.log(
+      `Arguments received by RepayBorrow event:`,
+      `PayerAddress: ${payer};`,
+      `BorrowerAddress: ${borrower};`,
+      `RepayAmount: ${repayAmount};`,
+      `AccountBorrows: ${accountBorrows};`,
+      `TotalBorrows: ${totalBorrows};`,
+    );
     console.log(`USDT balance: ${await USDT.balanceOf(signerAddress) / 1e6}`);
     console.log(`Account liquidity USD: ${await Comptroller.callStatic.getAccountLiquidity(signerAddress)}`);
     console.log(`USDT borrow balance: ${await oUSDT.callStatic.borrowBalanceCurrent(signerAddress) / 1e6}`);
@@ -113,8 +126,13 @@ async function main() {
   // Leaving 1 USDC unredeemed
   oUSDC.redeemUnderlying(USDCBalanceLocked - 1_000000);
 
-  await new Promise(resolve => oUSDC.on('Redeem', async (...args) => {
-    console.log(`Event Redeem: ${args}`);
+  await new Promise(resolve => oUSDC.on('Redeem', async (redeemer, redeemAmount, redeemTokens) => {
+    console.log(
+      `Arguments received by Redeem event:`,
+      `RedeemerAddress: ${redeemer};`,
+      `RedeemAmount: ${redeemAmount};`,
+      `RedeemTokens: ${redeemTokens};`,
+    );
     console.log(`Account liquidity USD: ${await Comptroller.callStatic.getAccountLiquidity(signerAddress)}`);
     console.log(`USDC balance: ${await USDC.balanceOf(signerAddress) / 1e6}`);
     console.log(`USDC balance locked for supply: ${await oUSDC.callStatic.balanceOfUnderlying(signerAddress) / 1e6}`);

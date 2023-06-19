@@ -52,8 +52,15 @@ async function main() {
   // Liquidate a half of borrowed balance
   oXCN.liquidateBorrow(borrowerAddress, borrowedBalance.div(2), oXCN.address);
 
-  await new Promise((resolve) => oXCN.on('LiquidateBorrow', async (...args) => {
-    console.log(`Event LiquidateBorrow: ${args}`);
+  await new Promise((resolve) => oXCN.on('LiquidateBorrow', async (liquidator, borrower, repayAmount, oTokenCollateral, seizeTokens) => {
+    console.log(
+      `Arguments received by LiquidateBorrow event:`, 
+      `LiquidatorAddress: ${liquidator};`, 
+      `BorrowerAddress: ${borrower};`,
+      `RepayAmount: ${repayAmount};`, 
+      `oTokenCollateralAddress: ${oTokenCollateral};`, 
+      `seizeTokens: ${seizeTokens};`,
+    );
     console.log(`Borrower account liquidity after liquidation: ${await Comptroller.getAccountLiquidity(borrowerAddress)}`);
     console.log(`Borrower balance in XCN after liquidation: ${await oXCN.callStatic.borrowBalanceCurrent(borrowerAddress) / 1e18}`);
     console.log(`Borrower balance locked for supply in XCN: ${await oXCN.callStatic.balanceOfUnderlying(borrowerAddress) / 1e18}`);
