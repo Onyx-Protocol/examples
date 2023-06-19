@@ -1,4 +1,5 @@
 const { ethers, network } = require('hardhat');
+const { formatNumber } = require('../helpers/utils');
 const oUSDCAbi = require('./../abi/oUSDC.json');
 const USDCAbi = require('./../abi/USDC.json');
 const USDTAbi = require('./../abi/USDT.json');
@@ -29,7 +30,7 @@ async function main() {
 
   // Amount of USDC tokens at signer account
   const bank = await USDC.balanceOf(signerAddress);
-  console.log(`USDC Initial balance: ${bank / 1e6}`);
+  console.log(`USDC Initial balance: ${formatNumber(bank / 1e6)}`);
 
   // Allow oTokens contracts to transfer all the tokens on balance
   await USDC.approve(oUSDC.address, bank);
@@ -50,11 +51,11 @@ async function main() {
       `MintAmount: ${mintAmount};`,
       `mintTokens: ${mintTokens};`,
     );
-    console.log(`USDC balance: ${await USDC.balanceOf(signerAddress) / 1e6}`);
-    console.log(`USDC balance locked for supply: ${await oUSDC.callStatic.balanceOfUnderlying(signerAddress) / 1e6}`);
-    console.log(`USDC supply rate per block: ${await oUSDC.callStatic.supplyRatePerBlock() / 1e18}`);
+    console.log(`USDC balance: ${formatNumber(await USDC.balanceOf(signerAddress) / 1e6)}`);
+    console.log(`USDC balance locked for supply: ${formatNumber(await oUSDC.callStatic.balanceOfUnderlying(signerAddress) / 1e6)}`);
+    console.log(`USDC supply rate per block: ${formatNumber(await oUSDC.callStatic.supplyRatePerBlock() / 1e18)}`);
     console.log(`USDC collateral factor: ${await Comptroller.callStatic.markets(oUSDC.address)}`);
-    console.log(`Account liquidity USD: ${await Comptroller.callStatic.getAccountLiquidity(signerAddress)}`);
+    console.log(`Account liquidity in USD: ${formatNumber((await Comptroller.getAccountLiquidity(signerAddress))[1] / 1e18)}`);
     console.log('\n');
     resolve();
   }));
@@ -62,7 +63,7 @@ async function main() {
 
   // Borrow
 
-  console.log(`USDT total supply: ${await oUSDT.totalSupply() / 1e8}`);
+  console.log(`USDT total supply: ${formatNumber(await oUSDT.totalSupply() / 1e8)}`);
 
   // 50_000000 - amount in underlying asset (USDT) equals $50 (USDT has 6 decimals)
   // https://docs.onyx.org/otokens/borrow
@@ -76,10 +77,10 @@ async function main() {
       `AccountBorrows: ${accountBorrows};`,
       `TotalBorrows: ${totalBorrows};`,
     );
-    console.log(`USDT balance: ${await USDT.balanceOf(signerAddress) / 1e6}`);
-    console.log(`Account liquidity USD: ${await Comptroller.callStatic.getAccountLiquidity(signerAddress)}`);
-    console.log(`USDT borrow balance: ${await oUSDT.callStatic.borrowBalanceCurrent(signerAddress) / 1e6}`);
-    console.log(`USDT borrow rate per block: ${await oUSDT.callStatic.borrowRatePerBlock() / 1e18}`);
+    console.log(`USDT balance: ${formatNumber(await USDT.balanceOf(signerAddress) / 1e6)}`);
+    console.log(`Account liquidity in USD: ${formatNumber((await Comptroller.getAccountLiquidity(signerAddress))[1] / 1e18)}`);
+    console.log(`USDT borrow balance: ${formatNumber(await oUSDT.callStatic.borrowBalanceCurrent(signerAddress) / 1e6)}`);
+    console.log(`USDT borrow rate per block: ${formatNumber(await oUSDT.callStatic.borrowRatePerBlock() / 1e18)}`);
     resolve();
   }));
 
@@ -93,7 +94,7 @@ async function main() {
   console.log('Mined 1000 blocks');
 
   const borrowBalance = await oUSDT.callStatic.borrowBalanceCurrent(signerAddress);
-  console.log(`USDT borrow balance: ${borrowBalance / 1e6}`);
+  console.log(`USDT borrow balance: ${formatNumber(borrowBalance / 1e6)}`);
   console.log('\n');
 
 
@@ -112,9 +113,9 @@ async function main() {
       `AccountBorrows: ${accountBorrows};`,
       `TotalBorrows: ${totalBorrows};`,
     );
-    console.log(`USDT balance: ${await USDT.balanceOf(signerAddress) / 1e6}`);
-    console.log(`Account liquidity USD: ${await Comptroller.callStatic.getAccountLiquidity(signerAddress)}`);
-    console.log(`USDT borrow balance: ${await oUSDT.callStatic.borrowBalanceCurrent(signerAddress) / 1e6}`);
+    console.log(`USDT balance: ${formatNumber(await USDT.balanceOf(signerAddress) / 1e6)}`);
+    console.log(`Account liquidity in USD: ${formatNumber((await Comptroller.getAccountLiquidity(signerAddress))[1] / 1e18)}`);
+    console.log(`USDT borrow balance: ${formatNumber(await oUSDT.callStatic.borrowBalanceCurrent(signerAddress) / 1e6)}`);
     console.log('\n');
     resolve();
   }));
@@ -122,10 +123,10 @@ async function main() {
 
   // Redeem
 
-  console.log(`USDC balance: ${await USDC.balanceOf(signerAddress) / 1e6}`);
+  console.log(`USDC balance: ${formatNumber(await USDC.balanceOf(signerAddress) / 1e6)}`);
   const USDCBalanceLocked = await oUSDC.callStatic.balanceOfUnderlying(signerAddress);
-  console.log(`USDC balance locked for supply: ${USDCBalanceLocked / 1e6}`);
-  console.log(`Account liquidity before redeem: ${await Comptroller.callStatic.getAccountLiquidity(signerAddress)}`);
+  console.log(`USDC balance locked for supply: ${formatNumber(USDCBalanceLocked / 1e6)}`);
+  console.log(`Account liquidity before redeem in USD: ${formatNumber((await Comptroller.getAccountLiquidity(signerAddress))[1] / 1e18)}`);
 
   // Leaving 1 USDC unredeemed
   // https://docs.onyx.org/otokens/redeem-underlying
@@ -138,9 +139,9 @@ async function main() {
       `RedeemAmount: ${redeemAmount};`,
       `RedeemTokens: ${redeemTokens};`,
     );
-    console.log(`Account liquidity USD: ${await Comptroller.callStatic.getAccountLiquidity(signerAddress)}`);
-    console.log(`USDC balance: ${await USDC.balanceOf(signerAddress) / 1e6}`);
-    console.log(`USDC balance locked for supply: ${await oUSDC.callStatic.balanceOfUnderlying(signerAddress) / 1e6}`);
+    console.log(`Account liquidity in USD: ${formatNumber((await Comptroller.getAccountLiquidity(signerAddress))[1] / 1e18)}`);
+    console.log(`USDC balance: ${formatNumber(await USDC.balanceOf(signerAddress) / 1e6)}`);
+    console.log(`USDC balance locked for supply: ${formatNumber(await oUSDC.callStatic.balanceOfUnderlying(signerAddress) / 1e6)}`);
     resolve();
   }));
 }
