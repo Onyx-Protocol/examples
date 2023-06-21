@@ -15,7 +15,12 @@ async function main() {
     method: 'hardhat_impersonateAccount',
     params: [signerAddress],
   });
+  const [owner] = await ethers.getSigners();
   const signer = ethers.provider.getSigner(signerAddress);
+  await owner.sendTransaction({
+    to: signerAddress,
+    value: ethers.utils.parseEther("1000")
+  });
 
   // Get contracts
   const oUSDC = await ethers.getContractAt(oUSDCAbi, '0x8f35113cFAba700Ed7a907D92B114B44421e412A', signer);
