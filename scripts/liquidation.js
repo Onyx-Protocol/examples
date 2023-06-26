@@ -25,7 +25,8 @@ async function main() {
       borrowerXcnBalance: 0,
     }
   }
-  // We will send transactions impersonating account with signerAddress
+
+  // We will send transactions using impersonating signerAddress account
   await network.provider.request({
     method: 'hardhat_impersonateAccount',
     params: [signerAddress],
