@@ -49,8 +49,8 @@ async function main() {
 
   // Get exchange rates for oXCN and XCN
   const oXCNExchangeRate = await oXCN.callStatic.exchangeRateCurrent();
-  console.log(`1 oXCN = XCN: ${formatNumber(oXCNExchangeRate / 1e28)}`);
-  console.log(`1 XCN = oXCN: ${formatNumber((1 / (oXCNExchangeRate / 1e28)))}`);
+  console.log(`1 XCN in oXCN: ${formatNumber((1 / (oXCNExchangeRate / 1e28)))}`);
+  console.log(`1 oXCN in XCN: ${formatNumber(oXCNExchangeRate / 1e28)}`);
   console.log('\n');
 
   // Amount of XCN tokens at signer account
