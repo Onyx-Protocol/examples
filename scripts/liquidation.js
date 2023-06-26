@@ -51,6 +51,12 @@ async function main() {
   const oXCNExchangeRate = await oXCN.callStatic.exchangeRateCurrent();
   console.log(`1 XCN in oXCN: ${formatNumber((1 / (oXCNExchangeRate / 1e28)))}`);
   console.log(`1 oXCN in XCN: ${formatNumber(oXCNExchangeRate / 1e28)}`);
+
+  // The percent, ranging from 0% to 100%, of a liquidatable account's borrow that can be repaid in a single liquidate transaction.
+  // https://docs.onyx.org/comptroller/close-factor
+  const closeFactorPercentage = (await Comptroller.callStatic.closeFactorMantissa() / 1e16)
+  console.log('Close factor:', closeFactorPercentage, '%')
+  console.log('Liquidation incentive:', (await Comptroller.callStatic.liquidationIncentiveMantissa() / 1e16), '%')
   console.log('\n');
 
   // Amount of XCN tokens at signer account
@@ -60,35 +66,32 @@ async function main() {
   await XCN.approve(oXCN.address, bank);
   await XCN.approve(Comptroller.address, bank);
 
-  const closeFactorPercentage = (await Comptroller.callStatic.closeFactorMantissa() / 1e16)
-  console.log('Close factor: ', closeFactorPercentage, '%')
-  console.log('Liquidation incentive: ', (await Comptroller.callStatic.liquidationIncentiveMantissa() / 1e16), '%')
 
   summary.before.xcnBalance = await XCN.balanceOf(signerAddress);
   summary.before.xcnLockedForSupply = await oXCN.callStatic.balanceOfUnderlying(signerAddress);
   summary.before.borrowerLiquidity = await Comptroller.getAccountLiquidity(borrowerAddress);
   summary.before.borrowerXcnLockedForSupply = await oXCN.callStatic.balanceOfUnderlying(borrowerAddress);
   summary.before.borrowerXcnBalance = await oXCN.callStatic.borrowBalanceCurrent(borrowerAddress)
-  console.log(`XCN balance: ${formatNumber(summary.before.xcnBalance / 1e18)}`);
-  console.log(`XCN balance locked for supply: ${formatNumber(summary.before.xcnLockedForSupply / 1e18)}`);
-  console.log(`Borrower account liquidity in USD: ${formatNumber(summary.before.borrowerLiquidity[1] / 1e18)}`);
-  console.log(`Borrower account negative liquidity in USD: ${formatNumber(summary.before.borrowerLiquidity[2] / 1e18)}`);
-  console.log(`Borrower balance locked for supply in XCN: ${formatNumber(summary.before.borrowerXcnLockedForSupply / 1e18)}`);
-  console.log(`Borrower assets in (XCN): ${await Comptroller.getAssetsIn(borrowerAddress)}`);
+  console.log(`Liquidator's XCN initial balance: ${formatNumber(summary.before.xcnBalance / 1e18)}`);
+  console.log(`Liquidator's XCN balance locked for supply: ${formatNumber(summary.before.xcnLockedForSupply / 1e18)}`);
+  console.log(`Borrower's account liquidity in USD: ${formatNumber(summary.before.borrowerLiquidity[1] / 1e18)}`);
+  console.log(`Borrower's account negative liquidity in USD: ${formatNumber(summary.before.borrowerLiquidity[2] / 1e18)}`);
+  console.log(`Borrower's balance locked for supply in XCN: ${formatNumber(summary.before.borrowerXcnLockedForSupply / 1e18)}`);
+  console.log(`Contract, which keeps the borrower's collateral assets: ${await Comptroller.getAssetsIn(borrowerAddress)} — oXCN`);
   console.log('\n');
 
   // Get borrow balance in underlying token (XCN)
-  console.log(`Borrower balance in XCN: ${formatNumber(summary.before.borrowerXcnBalance / 1e18)}`);
-  console.log(`Borrower balance in oXCN: ${formatNumber((summary.before.borrowerXcnBalance / 1e18) * (Math.floor((1 / (oXCNExchangeRate / 1e28)))))}`);
+  console.log(`Borrower balance in XCN (how much XCN do they borrow): ${formatNumber(summary.before.borrowerXcnBalance / 1e18)}`);
+  console.log(`Borrower balance in oXCN equivalent: ${formatNumber((summary.before.borrowerXcnBalance / 1e18) * (Math.floor((1 / (oXCNExchangeRate / 1e28)))))}`);
   console.log('\n');
 
-  // Liquidate a half of borrowed balance
+  // Liquidate a half of borrowed balance or choose: 0 < repayAmount < borrowerBalance * closeFactor
   // https://docs.onyx.org/otokens/liquidate-borrow
-  // if borrower liquidity positive, will throw an error
-  // 0 < repayAmount < borrowerBalance * closeFactor
-  // await oXCN.liquidateBorrow(borrowerAddress, summary.before.borrowerXcnBalance.mul(closeFactorPercentage).div(100), oXCN.address);
-  await oXCN.liquidateBorrow(borrowerAddress, summary.before.borrowerXcnBalance.mul(10).div(100), oXCN.address);
+  // If borrower liquidity is positive, the method throws an error
+  await oXCN.liquidateBorrow(borrowerAddress, summary.before.borrowerXcnBalance.mul(closeFactorPercentage).div(100), oXCN.address);
 
+  // Emitted upon a successful LiquidateBorrow
+  // https://docs.onyx.org/otokens/key-events
   await new Promise((resolve) => oXCN.on('LiquidateBorrow', async (liquidator, borrower, repayAmount, oTokenCollateral, seizeTokens) => {
     console.log(
       `Arguments received by LiquidateBorrow event:`,
