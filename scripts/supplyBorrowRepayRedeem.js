@@ -1,15 +1,21 @@
-const { ethers, network } = require("hardhat");
-const oUSDCAbi = require("./../abi/oUSDC.json");
-const USDCAbi = require("./../abi/USDC.json");
-const USDTAbi = require("./../abi/USDT.json");
-const oUSDTAbi = require("./../abi/oUSDT.json");
-const ComptrollerAbi = require("./../abi/Comptroller.json");
-require("dotenv").config();
+const { ethers, network } = require('hardhat');
+const { formatNumber } = require('../helpers/utils');
+const oUSDCAbi = require('./../abi/oUSDC.json');
+const USDCAbi = require('./../abi/USDC.json');
+const USDTAbi = require('./../abi/USDT.json');
+const oUSDTAbi = require('./../abi/oUSDT.json');
+const ComptrollerAbi = require('./../abi/Comptroller.json');
+require('dotenv').config();
 
-async function supply() {
-  const signerAddress = process.env.USDC_ADDRESS
+const signerAddress = process.env.USDC_ADDRESS;
+
+async function main() {
+  console.log('*** Starting Supply-Borrow-Repay-Redeem scenario ***\n');
+
+  // We will send transactions using impersonating signerAddress account
+
   await network.provider.request({
-    method: "hardhat_impersonateAccount",
+    method: 'hardhat_impersonateAccount',
     params: [signerAddress],
   });
   const [owner] = await ethers.getSigners();
@@ -17,97 +23,171 @@ async function supply() {
   await owner.sendTransaction({
     to: signerAddress,
     value: ethers.utils.parseEther("1000")
-  })
+  });
 
-  const oUSDC = await ethers.getContractAt(oUSDCAbi, "0x8f35113cFAba700Ed7a907D92B114B44421e412A", signer)
-  const USDC = await ethers.getContractAt(USDCAbi, "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", signer)
-  const oUSDT = await ethers.getContractAt(oUSDTAbi, "0xbCed4e924f28f43a24ceEDec69eE21ed4D04D2DD", signer)
-  const USDT = await ethers.getContractAt(USDTAbi, "0xdAC17F958D2ee523a2206206994597C13D831ec7", signer)
-  const Comptroller = await ethers.getContractAt(ComptrollerAbi, "0x7D61ed92a6778f5ABf5c94085739f1EDAbec2800", signer)
+  // Get contracts
+  const oUSDC = await ethers.getContractAt(oUSDCAbi, '0x8f35113cFAba700Ed7a907D92B114B44421e412A', signer);
+  const USDC = await ethers.getContractAt(USDCAbi, '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', signer);
+  const oUSDT = await ethers.getContractAt(oUSDTAbi, '0xbCed4e924f28f43a24ceEDec69eE21ed4D04D2DD', signer);
+  const USDT = await ethers.getContractAt(USDTAbi, '0xdAC17F958D2ee523a2206206994597C13D831ec7', signer);
+  const Comptroller = await ethers.getContractAt(ComptrollerAbi, '0x7D61ed92a6778f5ABf5c94085739f1EDAbec2800', signer);
 
-  await Comptroller.enterMarkets([oUSDC.address, oUSDT.address])
-  const bank = await USDC.balanceOf(signerAddress)
+  // Enter oTokens markets to supply and borrow
+  // https://docs.onyx.org/comptroller/enter-markets
+  await Comptroller.enterMarkets([oUSDC.address, oUSDT.address]);
 
-  await USDC.approve(oUSDC.address, bank)
-  await USDT.approve(oUSDT.address, bank)
+  // Amount of USDC tokens in the signer's account
+  const bank = await USDC.balanceOf(signerAddress);
+  console.log(`USDC initial balance: ${formatNumber(bank / 1e6)}`);
+  console.log(`USDT initial balance: ${formatNumber((await USDT.balanceOf(signerAddress)) / 1e6)}`);
 
+  // Allow oTokens contracts to transfer all the tokens on balance
+  await USDC.approve(oUSDC.address, bank);
+  await USDT.approve(oUSDT.address, bank);
 
-  // mint
+  console.log('\n');
+  console.log('*** Supply ***\n');
 
-  oUSDC.mint(bank)
+  // To supply USDC we mint oTokens in return
+  // 100_000000 - amount in the underlying for oUSDC asset (USDC) equals $100 (USDC has 6 decimals)
+  // https://docs.onyx.org/otokens/mint
+  oUSDC.mint(100_000001);
 
-  await new Promise((resolve) => oUSDC.on("Mint", async (...args) => {
-    console.log("Event Mint:", args)
-    console.log('USDC balance:', await USDC.balanceOf(signerAddress))
-    console.log('USDC balance locked for supply:', await oUSDC.callStatic.balanceOfUnderlying(signerAddress))
-    console.log('USDC collateral factor:', await Comptroller.callStatic.markets(oUSDC.address))
-    console.log('Account liquidity USD:', await Comptroller.callStatic.getAccountLiquidity(signerAddress))
-    resolve()
-  }))
+  // Emitted upon a successful Mint
+  // https://docs.onyx.org/otokens/key-events
+  await new Promise((resolve) => oUSDC.on('Mint', async (minter, mintAmount, mintTokens) => {
+    console.log(
+      `Arguments received by Mint event:`,
+      `MinterAddress: ${minter};`,
+      `MintAmount: ${mintAmount};`,
+      `mintTokens: ${mintTokens};`,
+    );
+    console.log(`USDC balance after supplying: ${formatNumber(await USDC.balanceOf(signerAddress) / 1e6)}`);
+    console.log(`USDC balance locked for supply (redeemable): ${formatNumber(await oUSDC.callStatic.balanceOfUnderlying(signerAddress) / 1e6)}`);
+    console.log(`USDC supply rate per block: ${formatNumber(await oUSDC.callStatic.supplyRatePerBlock() / 1e18)}`);
+    console.log(`USDC collateral factor: ${(await Comptroller.callStatic.markets(oUSDC.address))[1] / 1e18}`);
+    console.log(`Account liquidity in USD: ${formatNumber((await Comptroller.getAccountLiquidity(signerAddress))[1] / 1e18)}`);
+    console.log('\n');
+    resolve();
+  }));
 
-  // borrow
-
-  console.log('USDT total supply:', await oUSDT.totalSupply())
-  oUSDT.borrow(100_000000) // 100 USDT (6 decimals)
-
-  await new Promise((resolve) => oUSDT.on("Borrow", async (...args) => {
-    console.log("Event Borrow:", args)
-    console.log('USDT balance:', await USDT.balanceOf(signerAddress))
-    console.log('Account liquidity USD:', await Comptroller.callStatic.getAccountLiquidity(signerAddress))
-    console.log('USDT borrow balance:', await oUSDT.callStatic.borrowBalanceCurrent(signerAddress))
-    console.log('USDT borrow rate per block:', await oUSDT.callStatic.borrowRatePerBlock())
-    resolve()
-  }))
-
-  for (let i = 0; i < 10000; i++) {
-    // mine blocks to grow borrow balance by rate per block
+  // Mine 8640 blocks to grow supply balance: get the interest
+  for (let i = 0; i < 8640; i++) {
     await network.provider.request({
-      method: "evm_mine",
+      method: 'evm_mine',
       params: [],
     });
   }
 
+  console.log('Mined 8640 blocks ~ 1 day..');  
+  console.log(`USDC balance in a day: ${formatNumber(await USDC.balanceOf(signerAddress) / 1e6)}`);
+  console.log(`USDC balance locked for supply in a day (redeemable): ${formatNumber(await oUSDC.callStatic.balanceOfUnderlying(signerAddress) / 1e6)}`);
+
+  console.log('\n');
+  console.log('*** Borrow ***\n');
+
+  // Get exchange rates for oUSDT and USDT
+  const oUSDTExchangeRate = await oUSDT.callStatic.exchangeRateCurrent() / 1e16;
+  console.log(`1 USDT in oUSDT: ${formatNumber(1 / oUSDTExchangeRate)}`);
+  console.log(`1 oUSDT in USDT: ${formatNumber(oUSDTExchangeRate)}`);
+
+  console.log(`USDT total supply in the Onyx Protocol: ${formatNumber(await oUSDT.totalSupply() / (1 / oUSDTExchangeRate * 1e8))}`);
+  console.log(`USDT total liquidity in the Onyx Protocol: ${formatNumber(await oUSDT.getCash() / 1e6)}`);
+  console.log('\n');
+
+  // 50_000000 - amount in the underlying for oUSDT asset (USDT) equals $50 (USDT has 6 decimals)
+  // https://docs.onyx.org/otokens/borrow
+  oUSDT.borrow(50_000000);
+
+  // Emitted upon a successful Borrow
+  // https://docs.onyx.org/otokens/key-events
+  await new Promise((resolve) => oUSDT.on('Borrow', async (borrower, borrowAmount, accountBorrows, totalBorrows) => {
+    console.log(
+      `Arguments received by Borrow event:`,
+      `BorrowerAddress: ${borrower};`,
+      `BorrowAmount: ${borrowAmount};`,
+      `AccountBorrows: ${accountBorrows};`,
+      `TotalBorrows: ${totalBorrows};`,
+    );
+    console.log(`USDT balance after borrowing: ${formatNumber(await USDT.balanceOf(signerAddress) / 1e6)}`);
+    console.log(`Account liquidity in USD: ${formatNumber((await Comptroller.getAccountLiquidity(signerAddress))[1] / 1e18)}`);
+    console.log(`USDT borrow balance: ${formatNumber(await oUSDT.callStatic.borrowBalanceCurrent(signerAddress) / 1e6)}`);
+    console.log(`USDT borrow rate per block: ${formatNumber(await oUSDT.callStatic.borrowRatePerBlock() / 1e18)}`);
+    console.log('\n');
+    resolve();
+  }));
+
+  // Mine 8640 blocks to grow supply balance: get the interest
+  for (let i = 0; i < 8640; i++) {
+    await network.provider.request({
+      method: 'evm_mine',
+      params: [],
+    });
+  }
+
+  console.log('Mined 8640 blocks ~ 1 day..');  
+
   const borrowBalance = await oUSDT.callStatic.borrowBalanceCurrent(signerAddress);
-  console.log('USDT borrow balance:', borrowBalance)
-  console.log('Account liquidity USD:', await Comptroller.callStatic.getAccountLiquidity(signerAddress))
+  console.log(`USDT borrow balance in a day: ${formatNumber(borrowBalance / 1e6)}`);
 
+  console.log('\n');
+  console.log('*** Repay ***\n');
 
-  // repay
+  // 50_000000 - amount in the underlying for oUSDT asset (USDT) equals $50 (USDT has 6 decimals)
+  // https://docs.onyx.org/otokens/repay-borrow
+  oUSDT.repayBorrow(50_000000);
 
-  oUSDT.repayBorrow(100_000000)
+  // Emitted upon a successful RepayBorrow
+  // https://docs.onyx.org/otokens/key-events
+  await new Promise((resolve) => oUSDT.on('RepayBorrow', async (payer, borrower, repayAmount, accountBorrows, totalBorrows) => {
+    console.log(
+      `Arguments received by RepayBorrow event:`,
+      `PayerAddress: ${payer};`,
+      `BorrowerAddress: ${borrower};`,
+      `RepayAmount: ${repayAmount};`,
+      `AccountBorrows: ${accountBorrows};`,
+      `TotalBorrows: ${totalBorrows};`,
+    );
+    console.log(`USDT balance after repay: ${formatNumber(await USDT.balanceOf(signerAddress) / 1e6)}`);
+    console.log(`Account liquidity in USD: ${formatNumber((await Comptroller.getAccountLiquidity(signerAddress))[1] / 1e18)}`);
+    console.log(`USDT borrow balance: ${formatNumber(await oUSDT.callStatic.borrowBalanceCurrent(signerAddress) / 1e6)}`);
+    resolve();
+  }));
 
-  await new Promise((resolve) => oUSDT.on("RepayBorrow", async (...args) => {
-    console.log("Event RepayBorrow:", args)
-    console.log('USDT balance:', await USDT.balanceOf(signerAddress))
-    console.log('Account liquidity USD:', await Comptroller.callStatic.getAccountLiquidity(signerAddress))
-    console.log('USDT borrow balance:', await oUSDT.callStatic.borrowBalanceCurrent(signerAddress))
-    resolve()
-  }))
+  console.log('\n');
+  console.log('*** Redeem ***\n');
 
+  console.log(`USDC balance before redeem: ${formatNumber(await USDC.balanceOf(signerAddress) / 1e6)}`);
+  const USDCBalanceLocked = await oUSDC.callStatic.balanceOfUnderlying(signerAddress);
+  console.log(`USDC balance locked for supply (redeemable): ${formatNumber(USDCBalanceLocked / 1e6)}`);
+  console.log(`Account liquidity before redeem in USD: ${formatNumber((await Comptroller.getAccountLiquidity(signerAddress))[1] / 1e18)}`);
+  console.log('\n');
 
-  // redeem
+  // Leaving 1 USDC unredeemed
+  // https://docs.onyx.org/otokens/redeem-underlying
+  oUSDC.redeemUnderlying(USDCBalanceLocked - 1_000000);
 
-  console.log('USDC balance:', await USDC.balanceOf(signerAddress))
-  const USDCBalanceLocked = await oUSDC.callStatic.balanceOfUnderlying(signerAddress)
-  console.log('USDC balance locked for supply:', USDCBalanceLocked)
-  console.log('Account liquidity before redeem:', await Comptroller.callStatic.getAccountLiquidity(signerAddress))
+  // Emitted upon a successful Redeem
+  // https://docs.onyx.org/otokens/key-events
+  await new Promise(resolve => oUSDC.on('Redeem', async (redeemer, redeemAmount, redeemTokens) => {
+    console.log(
+      `Arguments received by Redeem event:`,
+      `RedeemerAddress: ${redeemer};`,
+      `RedeemAmount: ${redeemAmount};`,
+      `RedeemTokens: ${redeemTokens};`,
+    );
+    console.log(`USDC balance after redeem: ${formatNumber(await USDC.balanceOf(signerAddress) / 1e6)}`);
+    console.log(`Account liquidity in USD: ${formatNumber((await Comptroller.getAccountLiquidity(signerAddress))[1] / 1e18)}`);
+    console.log(`USDC balance locked for supply: ${formatNumber(await oUSDC.callStatic.balanceOfUnderlying(signerAddress) / 1e6)}`);
+    resolve();
+  }));
 
-  oUSDC.redeemUnderlying(USDCBalanceLocked - 1_000000)
-
-  await new Promise(resolve => oUSDC.on("Redeem", async (...args) => {
-    console.log("Event Redeem:", args)
-    console.log('Account liquidity USD:', await Comptroller.callStatic.getAccountLiquidity(signerAddress))
-    console.log('USDC balance:', await USDC.balanceOf(signerAddress))
-    console.log('USDC balance locked for supply:', await oUSDC.callStatic.balanceOfUnderlying(signerAddress))
-    resolve()
-  }))
+  console.log('\n');
+  console.log('Finished.\n');
 }
 
-async function send() {
-  await supply();
-}
 
-send()
+main()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);
