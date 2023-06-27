@@ -1,17 +1,23 @@
 {
   "name": "examples",
   "version": "1.0.0",
-  "description": "Working examples of Onyx Protocol mechanisms",
+  "description": "DeFi test scenarios for Onyx Protocol",
   "keywords": [
     "onyx",
     "onyx protocol",
     "onyx finance",
     "defi",
     "decentralized finance",
-    "ethereum"
+    "ethereum",
+    "liquidation",
+    "smart contract",
+    "supply",
+    "borrow",
+    "repay",
+    "redeem"
   ],
   "homepage": "https://github.com/Onyx-Protocol/examples#readme",
-  "author": "",
+  "author": "Aleksei Lebedev, Aleksei Zasulskii, Andrei Krivenko <info@onyx.org>",
   "scripts": {
     "liquidation": "npx hardhat run scripts/liquidation.js",
     "supplyBorrowRepayRedeem": "npx hardhat run scripts/supplyBorrowRepayRedeem.js"
@@ -28,7 +34,7 @@
     "hardhat": "^2.15.0"
   },
   "engines": {
-    "node": ">=14"
+    "node": ">=16"
   },
   "private": true
 }
