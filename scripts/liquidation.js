@@ -9,6 +9,8 @@ const borrowerAddress = process.env.XCN_BORROWER_ADDRESS;
 const signerAddress = process.env.XCN_ADDRESS;
 
 async function main() {
+  console.log('*** Starting Liquidation scenario ***\n');
+
   const summary = {
     before: {
       xcnBalance: 0,
@@ -66,24 +68,23 @@ async function main() {
   await XCN.approve(oXCN.address, bank);
   await XCN.approve(Comptroller.address, bank);
 
-
+  // Store balances and liquidity info before liquidation
   summary.before.xcnBalance = await XCN.balanceOf(signerAddress);
   summary.before.xcnLockedForSupply = await oXCN.callStatic.balanceOfUnderlying(signerAddress);
   summary.before.borrowerLiquidity = await Comptroller.getAccountLiquidity(borrowerAddress);
   summary.before.borrowerXcnLockedForSupply = await oXCN.callStatic.balanceOfUnderlying(borrowerAddress);
   summary.before.borrowerXcnBalance = await oXCN.callStatic.borrowBalanceCurrent(borrowerAddress)
-  console.log(`Liquidator's XCN initial balance: ${formatNumber(summary.before.xcnBalance / 1e18)}`);
-  console.log(`Liquidator's XCN balance locked for supply: ${formatNumber(summary.before.xcnLockedForSupply / 1e18)}`);
-  console.log(`Borrower's account liquidity in USD: ${formatNumber(summary.before.borrowerLiquidity[1] / 1e18)}`);
-  console.log(`Borrower's account negative liquidity in USD: ${formatNumber(summary.before.borrowerLiquidity[2] / 1e18)}`);
-  console.log(`Borrower's balance locked for supply in XCN: ${formatNumber(summary.before.borrowerXcnLockedForSupply / 1e18)}`);
+  console.log(`Liquidator XCN initial balance: ${formatNumber(summary.before.xcnBalance / 1e18)}`);
+  console.log(`Liquidator XCN balance locked for supply: ${formatNumber(summary.before.xcnLockedForSupply / 1e18)}`);
+  console.log(`Borrower account liquidity in USD: ${formatNumber(summary.before.borrowerLiquidity[1] / 1e18)}`);
+  console.log(`Borrower account negative liquidity in USD: ${formatNumber(summary.before.borrowerLiquidity[2] / 1e18)}`);
+  console.log(`Borrower balance locked for supply in XCN: ${formatNumber(summary.before.borrowerXcnLockedForSupply / 1e18)}`);
   console.log(`Contract, which keeps the borrower's collateral assets: ${await Comptroller.getAssetsIn(borrowerAddress)} — oXCN`);
   console.log('\n');
 
   // Get borrow balance in underlying token (XCN)
   console.log(`Borrower balance in XCN (how much XCN do they borrow): ${formatNumber(summary.before.borrowerXcnBalance / 1e18)}`);
   console.log(`Borrower balance in oXCN equivalent: ${formatNumber((summary.before.borrowerXcnBalance / 1e18) * (Math.floor((1 / (oXCNExchangeRate / 1e28)))))}`);
-  console.log('\n');
 
   // Liquidate a half of borrowed balance or choose: 0 < repayAmount < borrowerBalance * closeFactor
   // https://docs.onyx.org/otokens/liquidate-borrow
@@ -96,7 +97,10 @@ async function main() {
     return;
   }
 
-  await oXCN.liquidateBorrow(borrowerAddress, summary.before.borrowerXcnBalance.mul(closeFactorPercentage).div(100), oXCN.address);
+  const amountToRepay = summary.before.borrowerXcnBalance.mul(closeFactorPercentage).div(100);
+  console.log(`Liquidator repays XCN: ${formatNumber(amountToRepay / 1e18)}`);
+  console.log('\n');
+  await oXCN.liquidateBorrow(borrowerAddress, amountToRepay, oXCN.address);
 
   // Emitted upon a successful LiquidateBorrow
   // https://docs.onyx.org/otokens/key-events
@@ -115,23 +119,29 @@ async function main() {
     summary.after.borrowerLiquidity = await Comptroller.getAccountLiquidity(borrowerAddress);
     summary.after.borrowerXcnLockedForSupply = await oXCN.callStatic.balanceOfUnderlying(borrowerAddress);
     summary.after.borrowerXcnBalance = await oXCN.callStatic.borrowBalanceCurrent(borrowerAddress)
-    console.log(`Borrower account liquidity after liquidation: ${formatNumber(summary.after.borrowerLiquidity[1] / 1e18)}`);
-    console.log(`Borrower account negative liquidity after liquidation: ${formatNumber(summary.after.borrowerLiquidity[2] / 1e18)}`);
+    console.log(`Liquidator XCN balance after liquidation: ${formatNumber(summary.after.xcnBalance / 1e18)}`);
+    console.log(`Liquidator XCN balance locked for supply after liquidation: ${formatNumber(summary.after.xcnLockedForSupply / 1e18)}`);
+    console.log(`Borrower account liquidity in USD after liquidation: ${formatNumber(summary.after.borrowerLiquidity[1] / 1e18)}`);
+    console.log(`Borrower account negative liquidity in USD after liquidation: ${formatNumber(summary.after.borrowerLiquidity[2] / 1e18)}`);
     console.log(`Borrower balance in XCN after liquidation: ${formatNumber(summary.after.borrowerXcnBalance / 1e18)}`);
     console.log(`Borrower balance locked for supply in XCN: ${formatNumber(summary.after.borrowerXcnLockedForSupply / 1e18)}`);
-    console.log(`XCN balance after liquidation: ${formatNumber(summary.after.xcnBalance / 1e18)}`);
-    console.log(`XCN balance locked for supply after liquidation: ${formatNumber(summary.after.xcnLockedForSupply / 1e18)}`);
-    console.log(`Liquidator profit (current XCN locked for supply - liquidation cost): ${formatNumber((summary.after.xcnLockedForSupply - summary.before.borrowerXcnBalance.div(2)) / 1e18)}`);
+
+    const liquidatorProfit = (summary.after.xcnLockedForSupply - amountToRepay) / 1e18;
+    console.log('\n');
+    console.log(`Liquidator profit in XCN (locked for supply - liquidation cost): ${formatNumber(liquidatorProfit)}`);
     resolve();
   }));
 
-  console.log('\nDifferences:\n')
-  console.log(`Borrower account liquidity difference: ${formatNumber(summary.after.borrowerLiquidity[1].sub(summary.before.borrowerLiquidity[1]) / 1e18)}`);
-  console.log(`Borrower account negative liquidity difference: ${formatNumber(summary.after.borrowerLiquidity[2].mul(-1).sub(summary.before.borrowerLiquidity[2].mul(-1)) / 1e18)}`);
+  console.log('\n');
+  console.log('Changes:')
+  console.log(`Liquidator balance in XCN after liquidation difference: ${formatNumber((summary.after.xcnBalance - summary.before.xcnBalance) / 1e18)}`);
+  console.log(`Liquidator balance locked for supply in XCN difference: ${formatNumber((summary.after.xcnLockedForSupply - summary.before.xcnLockedForSupply) / 1e18)}`);
+  console.log(`Borrower account liquidity difference in USD: ${formatNumber(summary.after.borrowerLiquidity[1].add(summary.before.borrowerLiquidity[2]) / 1e18)}`);
   console.log(`Borrower balance in XCN after liquidation difference: ${formatNumber((summary.after.borrowerXcnBalance - summary.before.borrowerXcnBalance) / 1e18)}`);
   console.log(`Borrower balance locked for supply in XCN difference: ${formatNumber((summary.after.borrowerXcnLockedForSupply - summary.before.borrowerXcnLockedForSupply) / 1e18)}`);
-  console.log(`XCN balance after liquidation difference: ${formatNumber((summary.after.xcnBalance - summary.before.xcnBalance) / 1e18)}`);
-  console.log(`Profit. XCN balance locked for supply after liquidation difference: ${formatNumber((summary.after.xcnLockedForSupply - summary.before.borrowerXcnBalance.mul(10).div(100)) / 1e18)}`);
+
+  console.log('\n');
+  console.log('Finished.\n');
 }
 
 main()
