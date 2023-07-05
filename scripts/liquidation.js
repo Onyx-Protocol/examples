@@ -57,8 +57,9 @@ async function main() {
   // The percent, ranging from 0% to 100%, of a liquidatable account's borrow that can be repaid in a single liquidate transaction.
   // https://docs.onyx.org/comptroller/close-factor
   const closeFactorPercentage = (await Comptroller.callStatic.closeFactorMantissa() / 1e16)
+  const liquidationIncentiveMantissa = (await Comptroller.callStatic.liquidationIncentiveMantissa() / 1e16);
   console.log('Close factor:', closeFactorPercentage, '%')
-  console.log('Liquidation incentive:', (await Comptroller.callStatic.liquidationIncentiveMantissa() / 1e16), '%')
+  console.log('Liquidation incentive:', liquidationIncentiveMantissa, '%')
   console.log('\n');
 
   // Amount of XCN tokens at signer account
@@ -128,6 +129,9 @@ async function main() {
     console.log(`Borrower balance in XCN after liquidation: ${formatNumber(summary.after.borrowerXcnBalance / 1e18)}`);
     console.log(`Borrower balance locked for supply in XCN: ${formatNumber(summary.after.borrowerXcnLockedForSupply / 1e18)}`);
 
+    const protocolSeizeShareMantissa = await oXCN.protocolSeizeShareMantissa() / 1e16;
+    console.log('\n');
+    console.log('Protocol fee from repaid amount:', protocolSeizeShareMantissa, '%');
 
     const liquidatorProfitXCN = (summary.after.xcnLockedForSupply - amountToRepay) / 1e18;
     const collateralFactorXCN = (await Comptroller.callStatic.markets(oXCN.address))[1] / 1e18;
