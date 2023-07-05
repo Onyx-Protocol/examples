@@ -71,6 +71,7 @@ async function main() {
   // Store balances and liquidity info before liquidation
   summary.before.xcnBalance = await XCN.balanceOf(signerAddress);
   summary.before.xcnLockedForSupply = await oXCN.callStatic.balanceOfUnderlying(signerAddress);
+  summary.before.liquidatorLiquidity = await Comptroller.getAccountLiquidity(signerAddress);
   summary.before.borrowerLiquidity = await Comptroller.getAccountLiquidity(borrowerAddress);
   summary.before.borrowerXcnLockedForSupply = await oXCN.callStatic.balanceOfUnderlying(borrowerAddress);
   summary.before.borrowerXcnBalance = await oXCN.callStatic.borrowBalanceCurrent(borrowerAddress)
@@ -116,6 +117,7 @@ async function main() {
 
     summary.after.xcnBalance = await XCN.balanceOf(signerAddress);
     summary.after.xcnLockedForSupply = await oXCN.callStatic.balanceOfUnderlying(signerAddress);
+    summary.after.liquidatorLiquidity = await Comptroller.getAccountLiquidity(signerAddress);
     summary.after.borrowerLiquidity = await Comptroller.getAccountLiquidity(borrowerAddress);
     summary.after.borrowerXcnLockedForSupply = await oXCN.callStatic.balanceOfUnderlying(borrowerAddress);
     summary.after.borrowerXcnBalance = await oXCN.callStatic.borrowBalanceCurrent(borrowerAddress)
@@ -126,9 +128,17 @@ async function main() {
     console.log(`Borrower balance in XCN after liquidation: ${formatNumber(summary.after.borrowerXcnBalance / 1e18)}`);
     console.log(`Borrower balance locked for supply in XCN: ${formatNumber(summary.after.borrowerXcnLockedForSupply / 1e18)}`);
 
-    const liquidatorProfit = (summary.after.xcnLockedForSupply - amountToRepay) / 1e18;
+
+    const liquidatorProfitXCN = (summary.after.xcnLockedForSupply - amountToRepay) / 1e18;
+    const collateralFactorXCN = (await Comptroller.callStatic.markets(oXCN.address))[1] / 1e18;
+    const xcnLockedForSupplyDiff = (summary.after.xcnLockedForSupply - summary.before.xcnLockedForSupply) / 1e18;
+    const borrowableXCN = xcnLockedForSupplyDiff * collateralFactorXCN;
+    const liquidityDiff = (summary.after.liquidatorLiquidity[1] - summary.before.liquidatorLiquidity[1]) / 1e18;
+    const xcnusdRate = liquidityDiff / borrowableXCN;
+    const liquidatorProfitUSD = liquidatorProfitXCN * xcnusdRate;
     console.log('\n');
-    console.log(`Liquidator profit in XCN (locked for supply - liquidation cost): ${formatNumber(liquidatorProfit)}`);
+    console.log(`Liquidator profit in XCN (locked for supply - liquidation cost): ${formatNumber(liquidatorProfitXCN)}`);
+    console.log(`Liquidator approximate profit in USD: ${formatNumber(liquidatorProfitUSD)}`);
     resolve();
   }));
 
