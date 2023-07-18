@@ -51,8 +51,9 @@ async function main() {
 
   // Get exchange rates for oXCN and XCN
   const oXCNExchangeRate = await oXCN.callStatic.exchangeRateCurrent();
-  console.log(`1 XCN in oXCN: ${formatNumber((1 / (oXCNExchangeRate / 1e28)))}`);
-  console.log(`1 oXCN in XCN: ${formatNumber(oXCNExchangeRate / 1e28)}`);
+  const oXCNExchangeRateUnscaled = oXCNExchangeRate / 1e28;
+  console.log(`1 XCN in oXCN: ${formatNumber((1 / oXCNExchangeRateUnscaled))}`);
+  console.log(`1 oXCN in XCN: ${formatNumber(oXCNExchangeRateUnscaled)}`);
 
   // The percent, ranging from 0% to 100%, of a liquidatable account's borrow that can be repaid in a single liquidate transaction.
   // https://docs.onyx.org/comptroller/close-factor
@@ -133,14 +134,17 @@ async function main() {
     console.log('\n');
     console.log('Protocol fee from repaid amount:', protocolSeizeShareMantissa, '%');
 
+    // Calculate XCN rate based on current liquidity, XCN supply, and collateral factor
     const liquidatorProfitXCN = (summary.after.xcnLockedForSupply - amountToRepay) / 1e18;
     const collateralFactorXCN = (await Comptroller.callStatic.markets(oXCN.address))[1] / 1e18;
     const xcnLockedForSupplyDiff = (summary.after.xcnLockedForSupply - summary.before.xcnLockedForSupply) / 1e18;
     const borrowableXCN = xcnLockedForSupplyDiff * collateralFactorXCN;
     const liquidityDiff = (summary.after.liquidatorLiquidity[1] - summary.before.liquidatorLiquidity[1]) / 1e18;
-    const xcnusdRate = liquidityDiff / borrowableXCN;
-    const liquidatorProfitUSD = liquidatorProfitXCN * xcnusdRate;
+    const calculatedXcnUsdRate = liquidityDiff / borrowableXCN;
+    const liquidatorProfitUSD = liquidatorProfitXCN * calculatedXcnUsdRate;
+
     console.log('\n');
+    console.log('Calculated XCN rate:', calculatedXcnUsdRate);
     console.log(`Liquidator profit in XCN (locked for supply - liquidation cost): ${formatNumber(liquidatorProfitXCN)}`);
     console.log(`Liquidator approximate profit in USD: ${formatNumber(liquidatorProfitUSD)}`);
     resolve();
