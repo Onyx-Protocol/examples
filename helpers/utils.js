@@ -1,7 +1,8 @@
 module.exports = {
-  formatNumber(number) {
+  formatNumber(number, maximumFractionDigits = 20) {
     return new Intl.NumberFormat('en-EN', {
-      maximumSignificantDigits: 21,
+      // maximumSignificantDigits: 21,
+      maximumFractionDigits,
     }).format(number);
   },
 };

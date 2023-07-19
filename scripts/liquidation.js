@@ -59,6 +59,7 @@ async function main() {
   // https://docs.onyx.org/comptroller/close-factor
   const closeFactorPercentage = (await Comptroller.callStatic.closeFactorMantissa() / 1e16)
   const liquidationIncentiveMantissa = (await Comptroller.callStatic.liquidationIncentiveMantissa() / 1e16);
+  const liquidationIncentiveCoefficient = (await Comptroller.callStatic.liquidationIncentiveMantissa() / 1e18);
   console.log('Close factor:', closeFactorPercentage, '%')
   console.log('Liquidation incentive:', liquidationIncentiveMantissa, '%')
   console.log('\n');
@@ -131,8 +132,21 @@ async function main() {
     console.log(`Borrower balance locked for supply in XCN: ${formatNumber(summary.after.borrowerXcnLockedForSupply / 1e18)}`);
 
     const protocolSeizeShareMantissa = await oXCN.protocolSeizeShareMantissa() / 1e16;
+    const protocolSeizeShareCoefficient = await oXCN.protocolSeizeShareMantissa() / 1e18;
+    const repayAmountWithIncentive = repayAmount / 1e18 * liquidationIncentiveCoefficient;
+    const protocolFee = repayAmountWithIncentive * protocolSeizeShareCoefficient;
     console.log('\n');
-    console.log('Protocol fee from repaid amount:', protocolSeizeShareMantissa, '%');
+    // console.log('Protocol fee from repaid amount:', protocolSeizeShareMantissa, '%');
+    // console.log(`Liquidator paid: ${formatNumber(repayAmount / 1e18)}`);
+
+    console.log(`Liquidator's profit: Repay amount * Liquidation incentive:`);
+    console.log(`${formatNumber(repayAmount / 1e18)} * ${formatNumber(liquidationIncentiveCoefficient)} = ${formatNumber(repayAmountWithIncentive)}`);
+
+    console.log(`Liquidator has to pay protocol fee: ${formatNumber(protocolSeizeShareMantissa)} % of Liqudidator's profit`);
+    console.log(`${formatNumber(protocolSeizeShareCoefficient)} * ${formatNumber(repayAmountWithIncentive)} = ${formatNumber(protocolFee)}`);
+
+    console.log(`Protocol fee + Liquidator's locked for supply income = Repay amount * Liquidation incentive = Borrower's locked for supply loss`);
+    console.log(`${formatNumber(protocolFee, 3)} + ${formatNumber((summary.after.xcnLockedForSupply - summary.before.xcnLockedForSupply) / 1e18, 3)} = ${formatNumber(repayAmount / 1e18, 3)} * ${formatNumber(liquidationIncentiveCoefficient)} = ${formatNumber((summary.before.borrowerXcnLockedForSupply - summary.after.borrowerXcnLockedForSupply) / 1e18, 3)}`);
 
     // Calculate XCN rate based on current liquidity, XCN supply, and collateral factor
     const liquidatorProfitXCN = (summary.after.xcnLockedForSupply - amountToRepay) / 1e18;
