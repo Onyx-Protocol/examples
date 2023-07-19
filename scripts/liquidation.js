@@ -51,14 +51,17 @@ async function main() {
 
   // Get exchange rates for oXCN and XCN
   const oXCNExchangeRate = await oXCN.callStatic.exchangeRateCurrent();
-  console.log(`1 XCN in oXCN: ${formatNumber((1 / (oXCNExchangeRate / 1e28)))}`);
-  console.log(`1 oXCN in XCN: ${formatNumber(oXCNExchangeRate / 1e28)}`);
+  const oXCNExchangeRateUnscaled = oXCNExchangeRate / 1e28;
+  console.log(`1 XCN in oXCN: ${formatNumber((1 / oXCNExchangeRateUnscaled))}`);
+  console.log(`1 oXCN in XCN: ${formatNumber(oXCNExchangeRateUnscaled)}`);
 
   // The percent, ranging from 0% to 100%, of a liquidatable account's borrow that can be repaid in a single liquidate transaction.
   // https://docs.onyx.org/comptroller/close-factor
   const closeFactorPercentage = (await Comptroller.callStatic.closeFactorMantissa() / 1e16)
+  const liquidationIncentiveMantissa = (await Comptroller.callStatic.liquidationIncentiveMantissa() / 1e16);
+  const liquidationIncentiveCoefficient = (await Comptroller.callStatic.liquidationIncentiveMantissa() / 1e18);
   console.log('Close factor:', closeFactorPercentage, '%')
-  console.log('Liquidation incentive:', (await Comptroller.callStatic.liquidationIncentiveMantissa() / 1e16), '%')
+  console.log('Liquidation incentive:', liquidationIncentiveMantissa, '%')
   console.log('\n');
 
   // Amount of XCN tokens at signer account
@@ -71,6 +74,7 @@ async function main() {
   // Store balances and liquidity info before liquidation
   summary.before.xcnBalance = await XCN.balanceOf(signerAddress);
   summary.before.xcnLockedForSupply = await oXCN.callStatic.balanceOfUnderlying(signerAddress);
+  summary.before.liquidatorLiquidity = await Comptroller.getAccountLiquidity(signerAddress);
   summary.before.borrowerLiquidity = await Comptroller.getAccountLiquidity(borrowerAddress);
   summary.before.borrowerXcnLockedForSupply = await oXCN.callStatic.balanceOfUnderlying(borrowerAddress);
   summary.before.borrowerXcnBalance = await oXCN.callStatic.borrowBalanceCurrent(borrowerAddress)
@@ -116,6 +120,7 @@ async function main() {
 
     summary.after.xcnBalance = await XCN.balanceOf(signerAddress);
     summary.after.xcnLockedForSupply = await oXCN.callStatic.balanceOfUnderlying(signerAddress);
+    summary.after.liquidatorLiquidity = await Comptroller.getAccountLiquidity(signerAddress);
     summary.after.borrowerLiquidity = await Comptroller.getAccountLiquidity(borrowerAddress);
     summary.after.borrowerXcnLockedForSupply = await oXCN.callStatic.balanceOfUnderlying(borrowerAddress);
     summary.after.borrowerXcnBalance = await oXCN.callStatic.borrowBalanceCurrent(borrowerAddress)
@@ -126,9 +131,32 @@ async function main() {
     console.log(`Borrower balance in XCN after liquidation: ${formatNumber(summary.after.borrowerXcnBalance / 1e18)}`);
     console.log(`Borrower balance locked for supply in XCN: ${formatNumber(summary.after.borrowerXcnLockedForSupply / 1e18)}`);
 
-    const liquidatorProfit = (summary.after.xcnLockedForSupply - amountToRepay) / 1e18;
+    const protocolSeizeShareMantissa = await oXCN.protocolSeizeShareMantissa() / 1e16;
+    const protocolSeizeShareCoefficient = await oXCN.protocolSeizeShareMantissa() / 1e18;
+    const repayAmountWithIncentive = repayAmount / 1e18 * liquidationIncentiveCoefficient;
+    const protocolFee = repayAmountWithIncentive * protocolSeizeShareCoefficient;
+
     console.log('\n');
-    console.log(`Liquidator profit in XCN (locked for supply - liquidation cost): ${formatNumber(liquidatorProfit)}`);
+    console.log(`Liquidator's profit: Repay amount * Liquidation incentive:`);
+    console.log(`${formatNumber(repayAmount / 1e18)} * ${formatNumber(liquidationIncentiveCoefficient)} = ${formatNumber(repayAmountWithIncentive)}`);
+    console.log(`Liquidator has to pay protocol fee: ${formatNumber(protocolSeizeShareMantissa)} % of Liqudidator's profit`);
+    console.log(`${formatNumber(protocolSeizeShareCoefficient)} * ${formatNumber(repayAmountWithIncentive)} = ${formatNumber(protocolFee)}`);
+    console.log(`Protocol fee + Liquidator's locked for supply income = Repay amount * Liquidation incentive = Borrower's locked for supply loss`);
+    console.log(`${formatNumber(protocolFee, 3)} + ${formatNumber((summary.after.xcnLockedForSupply - summary.before.xcnLockedForSupply) / 1e18, 3)} = ${formatNumber(repayAmount / 1e18, 3)} * ${formatNumber(liquidationIncentiveCoefficient)} = ${formatNumber((summary.before.borrowerXcnLockedForSupply - summary.after.borrowerXcnLockedForSupply) / 1e18, 3)}`);
+
+    // Calculate XCN rate based on current liquidity, XCN supply, and collateral factor
+    const liquidatorProfitXCN = (summary.after.xcnLockedForSupply - amountToRepay) / 1e18;
+    const collateralFactorXCN = (await Comptroller.callStatic.markets(oXCN.address))[1] / 1e18;
+    const xcnLockedForSupplyDiff = (summary.after.xcnLockedForSupply - summary.before.xcnLockedForSupply) / 1e18;
+    const borrowableXCN = xcnLockedForSupplyDiff * collateralFactorXCN;
+    const liquidityDiff = (summary.after.liquidatorLiquidity[1] - summary.before.liquidatorLiquidity[1]) / 1e18;
+    const calculatedXcnUsdRate = liquidityDiff / borrowableXCN;
+    const liquidatorProfitUSD = liquidatorProfitXCN * calculatedXcnUsdRate;
+
+    console.log('\n');
+    console.log('Calculated XCN rate:', calculatedXcnUsdRate);
+    console.log(`Liquidator profit in XCN (locked for supply - liquidation cost): ${formatNumber(liquidatorProfitXCN)}`);
+    console.log(`Liquidator approximate profit in USD: ${formatNumber(liquidatorProfitUSD)}`);
     resolve();
   }));
 
