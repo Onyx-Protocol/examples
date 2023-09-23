@@ -28,7 +28,7 @@ async function getXcnRate() {
 async function getXcnRateByBlockNumber(blockNumber) {
   try {
     const url = `${BASE_URL}/market_history/graph`;
-    const limit = 10;
+    const limit = 365;
     let offset = 0;
 
     let response;
@@ -49,7 +49,7 @@ async function getXcnRateByBlockNumber(blockNumber) {
       const data = response.data.data;
       responseResult = data.result;
 
-      if (responseResult[responseResult.length - 1].blockNumber < blockNumber) {
+      if (responseResult[responseResult.length - 1].blockNumber <= blockNumber) {
         let l = 0;
         let r = responseResult.length - 1;
         let m;
@@ -61,7 +61,7 @@ async function getXcnRateByBlockNumber(blockNumber) {
           } else if (responseResult[m].blockNumber < blockNumber) {
             r =  m - 1;
           } else {
-            return m;
+            return responseResult[m].priceUSD;
           }
         }
 
