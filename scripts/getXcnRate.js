@@ -40,7 +40,7 @@ async function getXcnRateByBlockNumber(blockNumber) {
         method: 'get',
         params: {
           asset: XCNContractAddress,
-          type: '1hr',
+          // type: '1hr',  Pagination doesn't work with type specified
           limit,
           offset,
         },
@@ -75,6 +75,12 @@ async function getXcnRateByBlockNumber(blockNumber) {
     return undefined;
   }
 }
+
+// TEST
+// async function a() {
+//   console.log(await getXcnRateByBlockNumber(18310023));
+// }
+// a();
 
 module.exports = {
   getXcnRate,
